@@ -46,7 +46,15 @@ BSD terms apply: see the file COPYING in the distribution root for details.
 
 """
 
-import os, urllib, re, random, time, calendar, math, sys, signal
+import calendar
+import math
+import os
+import random
+import re
+import signal
+import sys
+import time
+import urllib
 
 # Set a socket timeout for slow servers
 import socket
