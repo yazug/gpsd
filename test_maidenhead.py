@@ -7,7 +7,8 @@
 # Test conversions generated using
 #       http://f6fvy.free.fr/qthLocator/
 
-import sys, gps.clienthelpers
+import gps.clienthelpers
+import sys
 
 errors = 0
 for (lat, lon, maidenhead, location) in [
