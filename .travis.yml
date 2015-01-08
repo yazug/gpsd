@@ -1,0 +1,6 @@
+language: c
+script:
+    - scons minimal=true
+    - scons minimal=true check
+    - scons minimal=false
+    - scons minimal=false check
