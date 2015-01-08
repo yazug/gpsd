@@ -75,8 +75,8 @@ static void assert_real(char *attr, double fld, double val)
 {
     if (fld != val) {
 	(void)fprintf(stderr,
-		      "'%s' real attribute eval failed, value = %f.\n", attr,
-		      fld);
+		      "'%s' real attribute eval failed, value = %f expected %f .\n", attr,
+		      fld, val);
 	exit(EXIT_FAILURE);
     }
 }
