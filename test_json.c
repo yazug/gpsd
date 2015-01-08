@@ -14,7 +14,7 @@
 #include "gpsd.h"
 #include "gps_json.h"
 
-#define JSON_MINIMAL	/* GPSD only uses a subset of the features */
+//#define JSON_MINIMAL	/* GPSD only uses a subset of the features */
 
 static void assert_case(int num, int status)
 {
