@@ -266,6 +266,7 @@ static inline uint16_t get_uint16(const uint8_t * buf)
 	| ((uint16_t) (0xFF & buf[1]) << 8);
 }
 
+#if defined(HAVE_LIBUSB)
 static inline uint32_t get_int32(const uint8_t * buf)
 {
     return (uint32_t) (0xFF & buf[0])
@@ -273,6 +274,7 @@ static inline uint32_t get_int32(const uint8_t * buf)
 	| ((uint32_t) (0xFF & buf[2]) << 16)
 	| ((uint32_t) (0xFF & buf[3]) << 24);
 }
+#endif /* HAVE_LIBUSB */
 
 // convert radians to degrees
 static inline double radtodeg(double rad)
@@ -1251,160 +1253,6 @@ static double garmin_time_offset(struct gps_device_t *session)
     return 0.430;		/* WTF?  WAG */
 }
 #endif /* TIMEHINT_ENABLE */
-
-/* this is everything we export */
-#ifdef __UNUSED__
-static int GetPacket(struct gps_device_t *session);
-//-----------------------------------------------------------------------------
-// Gets a single packet.
-// this is odd, the garmin usb driver will only return 64 bytes, or less
-// at a time, no matter what you ask for.
-//
-// is you ask for less than 64 bytes then the next packet will include
-// just the remaining bytes of the last 64 byte packet.
-//
-// Reading a packet of length Zero, or less than 64, signals the end of
-// the entire packet.
-//
-// The Garmin sample WinXX code also assumes the same behavior, so
-// maybe it is something in the USB protocol.
-//
-// Return: 0 = got a good packet
-//       -1 = error
-//       1 = got partial packet
-static int GetPacket(struct gps_device_t *session)
-{
-    struct timespec delay, rem;
-    int cnt = 0;
-    // int x = 0; // for debug dump
-
-    memset(session->driver.garmin.Buffer, 0, sizeof(Packet_t));
-    memset(&delay, 0, sizeof(delay));
-    session->driver.garmin.BufferLen = 0;
-    session->lexer.outbuflen = 0;
-
-    gpsd_report(&session->context->errout, LOG_DATA, "Garmin: GetPacket()\n");
-
-    for (cnt = 0; cnt < 10; cnt++) {
-	size_t pkt_size;
-	// Read async data until the driver returns less than the
-	// max async data size, which signifies the end of a packet
-
-	// not optimal, but given the speed and packet nature of
-	// the USB not too bad for a start
-	ssize_t theBytesReturned = 0;
-	uint8_t *buf = (uint8_t *) session->driver.garmin.Buffer;
-	Packet_t *thePacket = (Packet_t *) buf;
-
-	theBytesReturned =
-	    read(session->gpsdata.gps_fd,
-		 buf + session->driver.garmin.BufferLen, ASYNC_DATA_SIZE);
-	// zero byte returned is a legal value and denotes the end of a
-	// binary packet.
-	if (0 > theBytesReturned) {
-	    // read error...
-	    // or EAGAIN, but O_NONBLOCK is never set
-	    gpsd_report(&session->context->errout, LOG_ERROR,
-			"Garmin: GetPacket() read error=%d, errno=%d\n",
-			theBytesReturned, errno);
-	    continue;
-	}
-	gpsd_report(&session->context->errout, LOG_RAW,
-		    "Garmin: got %d bytes\n", theBytesReturned);
-
-	session->driver.garmin.BufferLen += theBytesReturned;
-	if (256 <= session->driver.garmin.BufferLen) {
-	    // really bad read error...
-	    gpsd_report(&session->context->errout, LOG_ERROR,
-			"Garmin: GetPacket() packet too long, %ld > 255 !\n",
-			session->driver.garmin.BufferLen);
-	    session->driver.garmin.BufferLen = 0;
-	    break;
-	}
-	pkt_size = 12 + get_int32((uint8_t *) & thePacket->mDataSize);
-	if (12 <= session->driver.garmin.BufferLen) {
-	    // have enough data to check packet size
-	    if (session->driver.garmin.BufferLen > pkt_size) {
-		// wrong amount of data in buffer
-		gpsd_report(&session->context->errout, LOG_ERROR,
-			    "Garmin: GetPacket() packet size wrong! Packet: %ld, s/b %ld\n",
-			    session->driver.garmin.BufferLen, pkt_size);
-		session->driver.garmin.BufferLen = 0;
-		break;
-	    }
-	}
-	if (64 > theBytesReturned) {
-	    // zero length, or short, read is a flag for got the whole packet
-	    break;
-	}
-
-
-	/*@ ignore @*/
-	delay.tv_sec = 0;
-	delay.tv_nsec = 3330000L;
-	while (nanosleep(&delay, &rem) == -1)
-	    continue;
-	/*@ end @*/
-    }
-    // dump the individual bytes, debug only
-    // for ( x = 0; x < session->driver.garmin.BufferLen; x++ ) {
-    // gpsd_report(&session->context->errout, LOG_RAW+1, "Garmin: p[%d] = %x\n", x, session->driver.garmin.Buffer[x]);
-    // }
-    if (10 <= cnt) {
-	gpsd_report(&session->context->errout, LOG_ERROR,
-		    "Garmin: GetPacket() packet too long or too slow!\n");
-	return -1;
-    }
-
-    gpsd_report(&session->context->errout, LOG_RAW,
-		"Garmin: GotPacket() sz=%d \n",
-		session->driver.garmin.BufferLen);
-    session->lexer.outbuflen = session->driver.garmin.BufferLen;
-    return 0;
-}
-
-static gps_mask_t garmin_usb_parse(struct gps_device_t *session)
-{
-    gpsd_report(&session->context->errout,  LOG_PROG, "Garmin: garmin_usb_parse()\n");
-    return PrintUSBPacket(session,
-			  (Packet_t *) session->driver.garmin.Buffer);
-}
-
-static ssize_t garmin_get_packet(struct gps_device_t *session)
-{
-    return (ssize_t) (0 == GetPacket(session) ? 1 : 0);
-}
-
-/* *INDENT-OFF* */
-const struct gps_type_t driver_garmin_usb_binary_old =
-{
-    .type_name      = "Garmin USB binary",	/* full name of type */
-    .packet_type    = GARMIN_PACKET;	/* associated lexer packet type */
-    .flags	    = DRIVER_STICKY,	/* remember this */
-    .trigger        = NULL,		/* no trigger, it has a probe */
-    .channels       = GARMIN_CHANNELS,	/* consumer-grade GPS */
-    .probe_detect   = garmin_usb_detect,/* how to detect at startup time */
-    .get_packet     = garmin_get_packet,/* how to grab a packet */
-    .parse_packet   = garmin_usb_parse,	/* parse message packets */
-    .rtcm_writer    = NULL,		/* don't send DGPS corrections */
-    .init_query     = NULL,		/* non-perturbing initial query */
-    .event_hook     = garmin_event_hook,/* lifetime event handler */
-#ifdef RECONFIGURE_ENABLE
-    .speed_switcher = NULL,		/* no speed switcher */
-    .mode_switcher  = NULL,		/* no mode switcher */
-    .rate_switcher  = NULL,		/* no sample-rate switcher */
-    .min_cycle      = 1,		/* not relevant, no rate switch */
-#endif /* RECONFIGURE_ENABLE */
-#ifdef CONTROLSEND_ENABLE
-    .control_send   = garmin_control_send,	/* send raw bytes */
-#endif /* CONTROLSEND_ENABLE */
-#ifdef TIMEHINT_ENABLE
-    .time_offset     = garmin_time_offset,
-#endif /* TIMEHINT_ENABLE */
-    .minlength       = 0;		/* min packet length unknown */
-};
-/* *INDENT-ON* */
-#endif /* __UNUSED__ */
 
 /* *INDENT-OFF* */
 const struct gps_type_t driver_garmin_usb_binary =
