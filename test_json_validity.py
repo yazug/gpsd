@@ -6,7 +6,8 @@
 # The goal is to check that GPSD outputs valid JSON.
 #
 
-import json, sys
+import json
+import sys
 
 success = True
 lc = 0
