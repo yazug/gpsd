@@ -52,13 +52,13 @@ void libgps_trace(int errlevel, const char *fmt, ...)
 #endif /* LIBGPS_DEBUG */
 
 #ifdef SOCKET_EXPORT_ENABLE
-#define CONDITIONALLY_UNUSED
+#define NOT_SOCKET_CONDITIONALLY_UNUSED
 #else
-#define CONDITIONALLY_UNUSED UNUSED
+#define NOT_SOCKET_CONDITIONALLY_UNUSED UNUSED
 #endif /* SOCKET_EXPORT_ENABLE */
 
 int gps_open(const char *host,
-	     const char *port CONDITIONALLY_UNUSED,
+	     const char *port NOT_SOCKET_CONDITIONALLY_UNUSED,
 	     struct gps_data_t *gpsdata)
 {
     int status = -1;
@@ -108,12 +108,12 @@ int gps_open(const char *host,
 }
 
 #if defined(SHM_EXPORT_ENABLE) || defined(SOCKET_EXPORT_ENABLE)
-#define CONDITIONALLY_UNUSED
+#define SHM_OR_SOCKET_CONDITIONALLY_UNUSED
 #else
-#define CONDITIONALLY_UNUSED	UNUSED
+#define SHM_OR_SOCKET_CONDITIONALLY_UNUSED	UNUSED
 #endif
 
-int gps_close(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED)
+int gps_close(struct gps_data_t *gpsdata SHM_OR_SOCKET_CONDITIONALLY_UNUSED)
 /* close a gpsd connection */
 {
     int status = -1;
@@ -136,7 +136,7 @@ int gps_close(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED)
 	return status;
 }
 
-int gps_read(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED)
+int gps_read(struct gps_data_t *gpsdata SHM_OR_SOCKET_CONDITIONALLY_UNUSED)
 /* read from a gpsd connection */
 {
     int status = -1;
@@ -161,10 +161,12 @@ int gps_read(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED)
     return status;
 }
 
-int gps_send(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED, const char *fmt CONDITIONALLY_UNUSED, ...)
+int gps_send(struct gps_data_t *gpsdata, const char *fmt, ...)
 /* send a command to the gpsd instance */
 {
     int status = -1;
+
+#ifdef SOCKET_EXPORT_ENABLE
     char buf[BUFSIZ];
     va_list ap;
 
@@ -174,40 +176,48 @@ int gps_send(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED, const char *fmt CO
     if (buf[strlen(buf) - 1] != '\n')
 	(void)strlcat(buf, "\n", sizeof(buf));
 
-#ifdef SOCKET_EXPORT_ENABLE
     status = gps_sock_send(gpsdata, buf);
+#else
+    (void)gpsdata;
+    (void)fmt;
 #endif /* SOCKET_EXPORT_ENABLE */
 
     return status;
 }
 
-int gps_stream(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED,
-	unsigned int flags CONDITIONALLY_UNUSED,
-	void *d CONDITIONALLY_UNUSED)
+int gps_stream(struct gps_data_t *gpsdata,
+	unsigned int flags,
+	void *d)
 {
     int status = -1;
 
 #ifdef SOCKET_EXPORT_ENABLE
     /* cppcheck-suppress redundantAssignment */
     status = gps_sock_stream(gpsdata, flags, d);
+#else
+    (void)gpsdata;
+    (void)flags;
+    (void)d;
 #endif /* SOCKET_EXPORT_ENABLE */
 
     return status;
 }
 
-const char *gps_data(const struct gps_data_t *gpsdata CONDITIONALLY_UNUSED)
+const char *gps_data(const struct gps_data_t *gpsdata)
 /* return the contents of the client data buffer */
 {
     const char *bufp = NULL;
 
 #ifdef SOCKET_EXPORT_ENABLE
     bufp = gps_sock_data(gpsdata);
+#else
+    (void)gpsdata;
 #endif /* SOCKET_EXPORT_ENABLE */
 
     return bufp;
 }
 
-bool gps_waiting(const struct gps_data_t *gpsdata CONDITIONALLY_UNUSED, int timeout CONDITIONALLY_UNUSED)
+bool gps_waiting(const struct gps_data_t *gpsdata SHM_OR_SOCKET_CONDITIONALLY_UNUSED, int timeout SHM_OR_SOCKET_CONDITIONALLY_UNUSED)
 /* is there input waiting from the GPS? */
 /* timeout is in uSec */
 {
@@ -228,9 +238,15 @@ bool gps_waiting(const struct gps_data_t *gpsdata CONDITIONALLY_UNUSED, int time
     return waiting;
 }
 
-int gps_mainloop(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED,
-		 int timeout CONDITIONALLY_UNUSED,
-		 void (*hook)(struct gps_data_t *gpsdata) CONDITIONALLY_UNUSED)
+#if defined(SHM_EXPORT_ENABLE) || defined(SOCKET_EXPORT_ENABLE) || defined(DBUS_EXPORT_ENABLE)
+#define SHM_OR_SOCKET_OR_DBUS_CONDITIONALLY_UNUSED
+#else
+#define SHM_OR_SOCKET_OR_DBUS_CONDITIONALLY_UNUSED	UNUSED
+#endif
+
+int gps_mainloop(struct gps_data_t *gpsdata SHM_OR_SOCKET_OR_DBUS_CONDITIONALLY_UNUSED,
+		 int timeout SHM_OR_SOCKET_OR_DBUS_CONDITIONALLY_UNUSED,
+		 void (*hook)(struct gps_data_t *gpsdata) SHM_OR_SOCKET_OR_DBUS_CONDITIONALLY_UNUSED)
 {
     int status = -1;
 
