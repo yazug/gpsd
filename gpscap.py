@@ -168,5 +168,5 @@ if __name__ == "__main__":
         d = GPSDictionary()
         d.HTMLDump(sys.stdout)
     except ConfigParser.Error, e:
-        print >>sys.stderr, sys.argv[0]+":", e
+        print >>sys.stderr, sys.argv[0] + ":", e
         raise SystemExit, 1
