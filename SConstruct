@@ -194,6 +194,7 @@ nonboolopts = (
     ("fixed_stop_bits",     0,             "fixed serial port stop bits"),
     ("target",              "",            "cross-development target"),
     ("sysroot",             "",            "cross-development system root"),
+    ("qt_versioned",        "",            "version for versioned Qt"),
     )
 for (name, default, help) in nonboolopts:
     opts.Add(name, help, default)
@@ -761,13 +762,20 @@ extern "C" {
 typedef int clockid_t;
 #define CLOCKID_T_DEFINED
 # endif
-/* OS X uses _STRUCT_TIMESPEC, but no clock_gettime */
-#ifndef _STRUCT_TIMESPEC
+/*
+ * OS X 10.5 and later use _STRUCT_TIMESPEC (like other OSes)
+ * 10.4 uses _TIMESPEC
+ * 10.3 and earlier use _TIMESPEC_DECLARED
+ */
+#if !defined(_STRUCT_TIMESPEC) \
+    && !defined(_TIMESPEC) && !defined(_TIMESPEC_DECLARED)
+#define _STRUCT_TIMESPEC
 struct timespec {
     time_t  tv_sec;
     long    tv_nsec;
 };
 #endif
+/* OS X does not have clock_gettime */
 #define CLOCK_REALTIME 0
 int clock_gettime(clockid_t, struct timespec *);
 # ifdef __cplusplus
@@ -801,9 +809,11 @@ int clock_gettime(clockid_t, struct timespec *);
                                           src_suffix=".xml", suffix=".html")
 
     # Determine if Qt network libraries are present, and if not, force qt to off
-    qt_network = config.CheckPKG('QtNetwork')
-    if not qt_network:
-        env["qt"] = False
+    if env["qt"]:
+        qt_net_name = 'Qt%sNetwork' % env["qt_versioned"]
+        qt_network = config.CheckPKG(qt_net_name)
+        if not qt_network:
+            env["qt"] = False
 
     env = config.Finish()
 
@@ -829,9 +839,10 @@ int clock_gettime(clockid_t, struct timespec *);
         qt_env.MergeFlags('-DUSE_QT')
         qt_env.Append(OBJPREFIX='qt-')
         try:
-            qt_env.MergeFlags(pkg_config('QtNetwork'))
+            qt_env.MergeFlags(pkg_config(qt_net_name))
         except OSError:
-            announce("pkg_config is confused about the state of QtNetwork.")
+            announce("pkg_config is confused about the state of %s."
+                     % qt_net_name)
             qt_env = None
     else:
         qt_env = None
@@ -1001,37 +1012,37 @@ gpsmon_sources = [
 ## Production programs
 
 gpsd = env.Program('gpsd', gpsd_sources,
-                   LIBS=['gpsd', 'gps_static'], LIBPATH='.',
+                   LIBS=['gpsd', 'gps_static'],
                    parse_flags=gpsdflags+gpsflags)
 gpsdecode = env.Program('gpsdecode', ['gpsdecode.c'],
-                        LIBS=['gpsd', 'gps_static'], LIBPATH='.',
+                        LIBS=['gpsd', 'gps_static'],
                         parse_flags=gpsdflags+gpsflags)
 gpsctl = env.Program('gpsctl', ['gpsctl.c'],
-                     LIBS=['gpsd', 'gps_static'], LIBPATH='.',
+                     LIBS=['gpsd', 'gps_static'],
                      parse_flags=gpsdflags+gpsflags)
 gpsmon = env.Program('gpsmon', gpsmon_sources,
-                     LIBS=['gpsd', 'gps_static'], LIBPATH='.',
+                     LIBS=['gpsd', 'gps_static'],
                      parse_flags=gpsdflags + gpsflags + ncurseslibs)
 gpsdctl = env.Program('gpsdctl', ['gpsdctl.c'],
-                      LIBS=['gps_static'], LIBPATH='.',
+                      LIBS=['gps_static'],
                       parse_flags=gpsflags)
 gpspipe = env.Program('gpspipe', ['gpspipe.c'],
-                      LIBS=['gps_static'], LIBPATH='.',
+                      LIBS=['gps_static'],
                       parse_flags=gpsflags)
 gps2udp = env.Program('gps2udp', ['gps2udp.c'],
-                      LIBS=['gps_static'], LIBPATH='.',
+                      LIBS=['gps_static'],
                       parse_flags=gpsflags)
 gpxlogger = env.Program('gpxlogger', ['gpxlogger.c'],
-                        LIBS=['gps_static'], LIBPATH='.',
+                        LIBS=['gps_static'],
                         parse_flags=gpsflags)
 lcdgps = env.Program('lcdgps', ['lcdgps.c'],
-                     LIBS=['gps_static'], LIBPATH='.',
+                     LIBS=['gps_static'],
                      parse_flags=gpsflags)
 cgps = env.Program('cgps', ['cgps.c'],
-                   LIBS=['gps_static'], LIBPATH='.',
+                   LIBS=['gps_static'],
                    parse_flags=gpsflags + ncurseslibs)
 ntpshmmon = env.Program('ntpshmmon', ['ntpshmmon.c'],
-                        LIBS=['gps_static'], LIBPATH='.',
+                        LIBS=['gps_static'],
                         parse_flags=gpsflags)
 
 binaries = [gpsd, gpsdecode, gpsctl, gpsdctl, gpspipe, gps2udp, gpxlogger, lcdgps, ntpshmmon]
@@ -1039,27 +1050,27 @@ if env["ncurses"]:
     binaries += [cgps, gpsmon]
 
 # Test programs - always link locally and statically
-test_bits = env.Program('test_bits', ['test_bits.c'],
-                        LIBS=['gps_static'], LIBPATH='.')
+test_bits = env.Program('test_bits', ['test_bits.c'], LIBS=['gps_static'])
 test_float = env.Program('test_float', ['test_float.c'])
 test_geoid = env.Program('test_geoid', ['test_geoid.c'],
                          LIBS=['gpsd', 'gps_static'],
-                         LIBPATH='.', parse_flags=gpsdflags)
+                         parse_flags=gpsdflags)
 test_matrix = env.Program('test_matrix', ['test_matrix.c'],
                           LIBS=['gpsd', 'gps_static'],
-                          LIBPATH='.', parse_flags=gpsdflags)
+                          parse_flags=gpsdflags)
 test_mktime = env.Program('test_mktime', ['test_mktime.c'],
-                          LIBS=['gps_static'], LIBPATH='.', parse_flags=["-lm"])
+                          LIBS=['gps_static'], parse_flags=["-lm"])
 test_packet = env.Program('test_packet', ['test_packet.c'],
                           LIBS=['gpsd', 'gps_static'],
-                          LIBPATH='.', parse_flags=gpsdflags)
+                          parse_flags=gpsdflags)
 test_timespec = env.Program('test_timespec', ['test_timespec.c'],
                           LIBS=['gpsd', 'gps_static'],
-                          LIBPATH='.', parse_flags=gpsdflags)
+                          parse_flags=gpsdflags)
 test_trig = env.Program('test_trig', ['test_trig.c'], parse_flags=["-lm"])
 # test_libgps for glibc older than 2.17
 test_libgps = env.Program('test_libgps', ['test_libgps.c'],
-                          LIBS=['gps_static'], LIBPATH='.', parse_flags=["-lm"] + rtlibs + dbusflags)
+                          LIBS=['gps_static'],
+                          parse_flags=["-lm"] + rtlibs + dbusflags)
 
 if not env['socket_export']:
     announce("test_json not building because socket_export is disabled")
@@ -1067,11 +1078,11 @@ if not env['socket_export']:
 else:
     test_json = env.Program(
         'test_json', ['test_json.c'],
-        LIBS=['gps_static'], LIBPATH='.',
+        LIBS=['gps_static'],
         parse_flags=["-lm"] + rtlibs + usbflags + dbusflags)
 
 test_gpsmm = env.Program('test_gpsmm', ['test_gpsmm.cpp'],
-                         LIBS=['gps_static'], LIBPATH='.', parse_flags=["-lm"])
+                         LIBS=['gps_static'], parse_flags=["-lm"])
 testprogs = [test_bits, test_float, test_geoid, test_libgps, test_matrix, test_mktime, test_packet, test_timespec, test_trig]
 if env['socket_export']:
     testprogs.append(test_json)
