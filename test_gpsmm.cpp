@@ -22,11 +22,9 @@ using namespace std;
 static void libgps_dump_state(struct gps_data_t *collect)
 {
     /* no need to dump the entire state, this is a sanity check */
-#ifndef USE_QT
     /* will fail on a 32-bit macine */
     (void)fprintf(stdout, "flags: (0x%04x) %s\n",
 		  (unsigned int)collect->set, gps_maskdump(collect->set));
-#endif
     if (collect->set & ONLINE_SET)
 	(void)fprintf(stdout, "ONLINE: %lf\n", collect->online);
     if (collect->set & TIME_SET)

@@ -269,7 +269,6 @@ extern const char *gps_errstr(const int err)
      * We might add our own error codes in the future, e.g for
      * protocol compatibility checks
      */
-#ifndef USE_QT
 #ifdef SHM_EXPORT_ENABLE
     if (err == SHM_NOSHARED)
 	return "no shared-memory segment or daemon not running";
@@ -281,22 +280,15 @@ extern const char *gps_errstr(const int err)
 	return "DBUS initialization failure";
 #endif /* DBUS_EXPORT_ENABLE */
     return netlib_errstr(err);
-#else
-    static char buf[32];
-    (void)snprintf(buf, sizeof(buf), "Qt error %d", err);
-    return buf;
-#endif
 }
 
 #ifdef LIBGPS_DEBUG
 void libgps_dump_state(struct gps_data_t *collect)
 {
     /* no need to dump the entire state, this is a sanity check */
-#ifndef USE_QT
     /* will fail on a 32-bit machine */
     (void)fprintf(debugfp, "flags: (0x%04x) %s\n",
 		  (unsigned int)collect->set, gps_maskdump(collect->set));
-#endif
     if (collect->set & ONLINE_SET)
 	(void)fprintf(debugfp, "ONLINE: %lf\n", collect->online);
     if (collect->set & TIME_SET)

@@ -11,20 +11,8 @@
 #include <sys/types.h>
 #include "gps.h" //the C library we are going to wrap
 
-#ifndef USE_QT
 class gpsmm {
-#else
 
-#include <QtCore/qglobal.h>
-
-#if defined(LIBQGPSMM_LIBRARY)
-#  define LIBQGPSMMSHARED_EXPORT Q_DECL_EXPORT
-#else
-#  define LIBQGPSMMSHARED_EXPORT Q_DECL_IMPORT
-#endif
-
-class LIBQGPSMMSHARED_EXPORT gpsmm {
-#endif
 	public:
 		// cppcheck-suppress uninitVar
 		gpsmm(const char *host, const char *port) : to_user(0), _gps_state() {

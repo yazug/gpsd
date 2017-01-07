@@ -62,7 +62,6 @@ knobs = [
     'passthrough',
     'pps',
     'python',
-    'qt',
     'reconfigure',
     'rtcm104v2',
     'rtcm104v3',

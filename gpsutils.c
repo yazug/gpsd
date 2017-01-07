@@ -22,11 +22,6 @@
 #include "gps.h"
 #include "libgps.h"
 
-#ifdef USE_QT
-#include <QDateTime>
-#include <QStringList>
-#endif
-
 /*
  * Berkeley implementation of strtod(), inlined to avoid locale problems
  * with the decimal point and stripped down to an atof()-equivalent.
@@ -334,7 +329,6 @@ timestamp_t iso8601_to_unix(char *isotime)
 /* ISO8601 UTC to Unix UTC, no leapsecond correction. */
 {
 #ifndef __clang_analyzer__
-#ifndef USE_QT
     char *dp = NULL;
     double usec = 0;
     struct tm tm;
@@ -437,16 +431,6 @@ timestamp_t iso8601_to_unix(char *isotime)
      * timezone database to get it right.
      */
     return (timestamp_t)mkgmtime(&tm) + usec;
-#else
-    double usec = 0;
-
-    QString t(isotime);
-    QDateTime d = QDateTime::fromString(isotime, Qt::ISODate);
-    QStringList sl = t.split(".");
-    if (sl.size() > 1)
-	usec = sl[1].toInt() / pow(10., (double)sl[1].size());
-    return (timestamp_t)(d.toTime_t() + usec);
-#endif
 #endif /* __clang_analyzer__ */
 }
 

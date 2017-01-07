@@ -154,7 +154,6 @@ boolopts = (
     ("clientdebug",   True,  "client debugging support"),
     ("ncurses",       True,  "build with ncurses"),
     ("libgpsmm",      True,  "build C++ bindings"),
-    ("qt",            True,  "build QT bindings"),
     # Daemon options
     ("reconfigure",   True,  "allow gpsd to change device settings"),
     ("controlsend",   True,  "allow gpsctl/gpsmon to change device settings"),
@@ -201,7 +200,6 @@ nonboolopts = (
     ("fixed_stop_bits",     0,             "fixed serial port stop bits"),
     ("target",              "",            "cross-development target"),
     ("sysroot",             "",            "cross-development system root"),
-    ("qt_versioned",        "",            "version for versioned Qt"),
     ("python_coverage",     "coverage run",
                                            "coverage command for Python progs"),
     )
@@ -937,13 +935,6 @@ int clock_gettime(clockid_t, struct timespec *);
         env['BUILDERS']["HTML"] = Builder(action=htmlbuilder,
                                           src_suffix=".xml", suffix=".html")
 
-    # Determine if Qt network libraries are present, and if not, force qt to off
-    if env["qt"]:
-        qt_net_name = 'Qt%sNetwork' % env["qt_versioned"]
-        qt_network = config.CheckPKG(qt_net_name)
-        if not qt_network:
-            env["qt"] = False
-            announce('Turning off Qt support, library not found.')
 
     # If supported by the compiler, enable all warnings except uninitialized and
     # missing-field-initializers, which we can't help triggering because
@@ -1034,19 +1025,6 @@ if not (cleaning or helping):
         announce("Adjust your PYTHONPATH to see library directories under /usr/local/lib")
 
 # Should we build the Qt binding?
-if env["qt"] and env["shared"]:
-    qt_env = env.Clone()
-    qt_env.MergeFlags('-DUSE_QT')
-    qt_env.Append(OBJPREFIX='qt-')
-    if not (cleaning or helping):
-        try:
-            qt_env.MergeFlags(pkg_config(qt_net_name))
-        except OSError:
-            announce("pkg_config is confused about the state of %s."
-                     % qt_net_name)
-            qt_env = None
-else:
-    qt_env = None
 
 # Set up for Python coveraging if needed
 if env['coveraging'] and env['python_coverage'] and not (cleaning or helping):
@@ -1180,28 +1158,6 @@ static_gpsdlib = env.StaticLibrary(target="gpsd",
 libraries = [compiled_gpslib]
 
 # Only attempt to create the qt library if we have shared turned on otherwise we have a mismash of objects in library
-if qt_env:
-    qtobjects = []
-    qt_flags = qt_env['CFLAGS']
-    for c_only in ('-Wmissing-prototypes', '-Wstrict-prototypes'):
-        if c_only in qt_flags:
-            qt_flags.remove(c_only)
-    # Qt binding object files have to be renamed as they're built to avoid
-    # name clashes with the plain non-Qt object files. This prevents the
-    # infamous "Two environments with different actions were specified
-    # for the same target" error.
-    for src in libgps_sources:
-        if src not in ('ais_json.c', 'json.c', 'libgps_json.c', 'rtcm2_json.c', 'rtcm3_json.c', 'shared_json.c'):
-            compile_with = qt_env['CXX']
-            compile_flags = qt_flags
-        else:
-            compile_with = qt_env['CC']
-            compile_flags = qt_env['CFLAGS']
-        qtobjects.append(qt_env.SharedObject(src,
-                                             CC=compile_with,
-                                             CFLAGS=compile_flags))
-    compiled_qgpsmmlib = Library(qt_env, "Qgpsmm", qtobjects, libgps_version)
-    libraries.append(compiled_qgpsmmlib)
 
 # The libraries have dependencies on system libraries
 # libdbus appears multiple times because the linker only does one pass.
@@ -1586,7 +1542,6 @@ base_manpages = {
     "lcdgps.1": "gps.xml",
     "libgps.3": "libgps.xml",
     "libgpsmm.3": "libgpsmm.xml",
-    "libQgpsmm.3": "libgpsmm.xml",
     "gpsmon.1": "gpsmon.xml",
     "gpsctl.1": "gpsctl.xml",
     "gpsdctl.8": "gpsdctl.xml",
@@ -1625,9 +1580,6 @@ build = env.Alias('build',
                    "gpsd.php", manpage_targets,
                    "libgps.pc", "gpsd.rules"])
 
-if qt_env:
-    build_qt = qt_env.Alias('build', [compiled_qgpsmmlib])
-    qt_env.Default(*build_qt)
 
 if env['python']:
     build_python = python_env.Alias('build', python_targets)
@@ -1648,8 +1600,6 @@ binaryinstall.append(LibraryInstall(env, installdir('libdir'), compiled_gpslib, 
 # Work around a minor bug in InstallSharedLib() link handling
 env.AddPreAction(binaryinstall, 'rm -f %s/libgps.*' % (installdir('libdir'), ))
 
-if qt_env:
-    binaryinstall.append(LibraryInstall(qt_env, installdir('libdir'), compiled_qgpsmmlib, libgps_version))
 
 if not env['debug'] and not env['profiling'] and not env['nostrip'] and not sys.platform.startswith('darwin'):
     env.AddPostAction(binaryinstall, '$STRIP $TARGET')
@@ -1679,9 +1629,6 @@ else:
                         Dir(DESTDIR + python_module_dir)]
 
 pc_install = [env.Install(installdir('pkgconfig'), 'libgps.pc')]
-if qt_env:
-    pc_install.append(qt_env.Install(installdir('pkgconfig'), 'Qgpsmm.pc'))
-    pc_install.append(qt_env.Install(installdir('libdir'), 'libQgpsmm.prl'))
 
 
 maninstall = []
@@ -1727,7 +1674,6 @@ def Utility(target, source, action):
 # Putting in all these -U flags speeds up cppcheck and allows it to look
 # at configurations we actually care about.
 Utility("cppcheck", ["gpsd.h", "packet_names.h"],
-        "cppcheck -U__UNUSED__ -UUSE_QT -U__COVERITY__ -U__future__ -ULIMITED_MAX_CLIENTS -ULIMITED_MAX_DEVICES -UAF_UNSPEC -UINADDR_ANY -UFIXED_PORT_SPEED -UFIXED_STOP_BITS -U_WIN32 -U__CYGWIN__ -UPATH_MAX -UHAVE_STRLCAT -UHAVE_STRLCPY -UIPTOS_LOWDELAY -UIPV6_TCLASS -UTCP_NODELAY -UTIOCMIWAIT --template gcc --enable=all --inline-suppr --suppress='*:driver_proto.c' --force $SRCDIR")
 
 # Check with clang analyzer
 Utility("scan-build", ["gpsd.h", "packet_names.h"],

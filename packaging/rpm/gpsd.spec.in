@@ -34,6 +34,8 @@ Requires(postun): /sbin/ldconfig
 Requires(preun): initscripts
 Requires(preun): /sbin/chkconfig
 
+Obsoletes: %{name}-libQgpsmm
+
 %description 
 gpsd is a service daemon that mediates access to a GPS sensor
 connected to the host computer by serial or USB interface, making its
@@ -53,17 +55,6 @@ Requires: pkgconfig
 %description devel
 This package provides C header files and python modules for the gpsd shared 
 libraries that manage access to a GPS for applications
-
-%package -n libQgpsmm
-Summary: Qt Client libraries for talking to a running gpsd or GPS
-Group: Development/Libraries
-Requires: %{name} = %{version}-%{release}
-Requires: qt
-Requires: pkgconfig
-
-%description -n libQgpsmm
-This package provides Qt shared libraries that manage access to a GPS
-for Qt applications
 
 %package clients
 Summary: Clients for gpsd
@@ -239,12 +230,6 @@ fi
 %{_mandir}/man3/libgpsmm.3*
 %{_mandir}/man5/srec.5*
 
-%files -n libQgpsmm
-%defattr(-,root,root,-)
-%{_qt4_libdir}/libQgpsmm.so*
-%{_qt4_libdir}/libQgpsmm.prl
-%{_mandir}/man3/libQgpsmm.3*
-
 %files clients
 %defattr(-,root,root,-)
 %{_mandir}/man1/gps.1*
@@ -282,6 +267,9 @@ fi
 %attr(0755,root,root) %{_var}/www/html/gpsd/pgps.cgi
 
 %changelog
+* Sat Jan 7 2017 Jon Schlueter <jon.schlueter@gmail.com> 3.17
+- Drop QT support and -libQgpsmm rpm
+
 * Mon Mar 23 00:11:00 EDT 2015Eric S. Raymond <esr@thyrsus.com> 3.15-1
 - We no longer export libgpsd.
 

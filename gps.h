@@ -2002,11 +2002,7 @@ struct gps_data_t {
 				 * prone to false zero values.
 				 */
 
-#ifndef USE_QT
     socket_t gps_fd;		/* socket or file descriptor to GPS */
-#else
-    void* gps_fd;
-#endif
     struct gps_fix_t	fix;	/* accumulated PVT data */
 
     /* this should move to the per-driver structure */
