@@ -173,6 +173,8 @@ int gps_send(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED, const char *fmt CO
 /* send a command to the gpsd instance */
 {
     int status = -1;
+
+#ifdef SOCKET_EXPORT_ENABLE
     char buf[BUFSIZ];
     va_list ap;
 
@@ -182,7 +184,6 @@ int gps_send(struct gps_data_t *gpsdata CONDITIONALLY_UNUSED, const char *fmt CO
     if (buf[strlen(buf) - 1] != '\n')
 	(void)strlcat(buf, "\n", sizeof(buf));
 
-#ifdef SOCKET_EXPORT_ENABLE
     status = gps_sock_send(gpsdata, buf);
 #endif /* SOCKET_EXPORT_ENABLE */
 
